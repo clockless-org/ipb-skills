@@ -76,8 +76,27 @@ class IPBTests(unittest.TestCase):
             stats = ipb.import_source("claude", [path], out)
             self.assertEqual(stats.tokens, 20)
             self.assertEqual(stats.user_messages, 2)
+            self.assertEqual(stats.interruptions, 2)
+            self.assertEqual(ipb.summarize(ipb.read_events([out]))["ipb"], 100_000_000)
+
+    def test_import_can_exclude_first_user_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "claude.jsonl"
+            records = [
+                {"type": "user", "message": {"role": "user", "content": "initial task"}},
+                {"type": "user", "message": {"role": "user", "content": "follow up"}},
+            ]
+            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+
+            stats = ipb.import_source(
+                "claude",
+                [path],
+                Path(tmp) / "events.jsonl",
+                dry_run=True,
+                exclude_first_user_message=True,
+            )
+            self.assertEqual(stats.user_messages, 2)
             self.assertEqual(stats.interruptions, 1)
-            self.assertEqual(ipb.summarize(ipb.read_events([out]))["ipb"], 50_000_000)
 
     def test_claude_subagent_user_messages_are_internal(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -119,7 +138,7 @@ class IPBTests(unittest.TestCase):
             stats = ipb.import_source("codex", [path], out)
             self.assertEqual(stats.tokens, 100)
             self.assertEqual(stats.user_messages, 2)
-            self.assertEqual(stats.interruptions, 1)
+            self.assertEqual(stats.interruptions, 2)
 
     def test_imports_generic_hermes_style_records(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -134,7 +153,7 @@ class IPBTests(unittest.TestCase):
             stats = ipb.import_source("hermes", [path], Path(tmp) / "events.jsonl", dry_run=True)
             self.assertEqual(stats.tokens, 50)
             self.assertEqual(stats.user_messages, 2)
-            self.assertEqual(stats.interruptions, 1)
+            self.assertEqual(stats.interruptions, 2)
 
 
 if __name__ == "__main__":

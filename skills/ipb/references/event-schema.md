@@ -47,10 +47,10 @@ Historical import commands append normal `usage` and `interruption` events with 
 ```
 
 ```json
-{"type":"interruption","reason":"user-message","count":12,"source":"claude-import","imported_from":"/path/to/session.jsonl","user_messages":13,"interruption_policy":"exclude-first-user-message-per-file"}
+{"type":"interruption","reason":"user-message","count":13,"source":"claude-import","imported_from":"/path/to/session.jsonl","user_messages":13,"interruption_policy":"all-user-messages"}
 ```
 
-For historical logs, `user-message` interruptions are a proxy. The importer excludes the first user message in each log file by default and treats Claude `subagents` user messages as internal agent traffic.
+For historical logs, `user-message` interruptions are a proxy. The importer counts every human user message by default and treats Claude `subagents` user messages as internal agent traffic. Use `--exclude-first-user-message` for a conservative estimate that ignores each log file's initial task message.
 
 ## Example Report
 

@@ -372,7 +372,7 @@ def import_source(
     paths: list[Path],
     output_log: Path,
     dry_run: bool = False,
-    include_first_user_message: bool = False,
+    exclude_first_user_message: bool = False,
 ) -> ImportStats:
     stats = ImportStats(source=source)
     for path in paths:
@@ -397,10 +397,10 @@ def import_source(
                 continue
 
             file_user_messages += 1
-            if include_first_user_message or seen_first_user_message:
-                file_interruptions += 1
-            else:
+            if exclude_first_user_message and not seen_first_user_message:
                 seen_first_user_message = True
+                continue
+            file_interruptions += 1
 
         stats.tokens += file_tokens
         stats.token_events += file_token_events
@@ -425,9 +425,9 @@ def import_source(
                     "reason": "user-message",
                     "count": file_interruptions,
                     "user_messages": file_user_messages,
-                    "interruption_policy": "all-user-messages"
-                    if include_first_user_message
-                    else "exclude-first-user-message-per-file",
+                    "interruption_policy": "exclude-first-user-message-per-file"
+                    if exclude_first_user_message
+                    else "all-user-messages",
                     **common,
                 },
             )
@@ -454,9 +454,14 @@ def add_import_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser], 
     command.add_argument("--out-log", type=Path, default=None, help="Output IPB JSONL path. Defaults to .ipb/events.jsonl.")
     command.add_argument("--dry-run", action="store_true", help="Scan and summarize without writing IPB events.")
     command.add_argument(
+        "--exclude-first-user-message",
+        action="store_true",
+        help="Do not count the first user message in each log file as an interruption.",
+    )
+    command.add_argument(
         "--include-first-user-message",
         action="store_true",
-        help="Count the first user message in each log file as an interruption.",
+        help=argparse.SUPPRESS,
     )
 
 
@@ -558,7 +563,7 @@ def main() -> int:
             paths=paths,
             output_log=output_log,
             dry_run=args.dry_run,
-            include_first_user_message=args.include_first_user_message,
+            exclude_first_user_message=args.exclude_first_user_message,
         )
         print_import_summary(stats, output_log, args.dry_run)
         return 0

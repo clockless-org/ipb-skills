@@ -62,7 +62,7 @@ Default sources:
 - Codex CLI: `~/.codex/sessions/**/*.jsonl` and `~/.codex/archived_sessions/*.jsonl`
 - Hermes-style logs: pass `--path`; common JSONL/JSON `usage`, `last_token_usage`, and `role=user` records are supported.
 
-Historical user messages are used as an interruption proxy. The importer skips the first user message in each log file by default because it is usually the initial task, not an interruption. Claude `subagents` user messages are treated as internal agent traffic.
+Historical user messages are used as an interruption proxy. Every human user message is counted by default. Claude `subagents` user messages are treated as internal agent traffic. Use `--exclude-first-user-message` only when you want a conservative estimate that ignores each log file's initial task message.
 
 ## Five Levels
 
