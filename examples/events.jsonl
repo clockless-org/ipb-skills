@@ -1,0 +1,4 @@
+{"type":"usage","tokens":2500000000,"provider":"openai","model":"gpt-5","task_id":"demo-1"}
+{"type":"interruption","reason":"context-needed","task_id":"demo-1","note":"Needed user to choose pricing direction"}
+{"type":"usage","input_tokens":500000000,"output_tokens":1000000000,"provider":"anthropic","model":"claude","task_id":"demo-2"}
+{"type":"interruption","reason":"human-review-blocked","task_id":"demo-2","count":2}
