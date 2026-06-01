@@ -341,6 +341,14 @@ def claude_is_user_message(record: dict[str, Any], path: Path | None = None) -> 
         return False
     if record.get("type") != "user":
         return False
+    # IPB counts human interruptions, not orchestrated agent-to-agent prompts.
+    # Claude Code stamps entrypoint="sdk-cli" on every user-role record that
+    # came in programmatically (Paperclip wakes, Hermes loops, Codex subagents
+    # driving Claude). entrypoint="cli" / "claude-desktop" are real humans
+    # typing into a terminal or the desktop app. Skip the SDK ones so the
+    # numerator only reflects actual human pulls.
+    if record.get("entrypoint") == "sdk-cli":
+        return False
     message = record.get("message")
     if not isinstance(message, dict) or message.get("role") != "user":
         return False
