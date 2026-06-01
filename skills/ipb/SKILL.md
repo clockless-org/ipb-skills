@@ -38,6 +38,7 @@ The script can import past token usage and user-message counts from local agent 
 ```bash
 python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-claude --dry-run
 python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-codex --dry-run
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-all --dry-run
 python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-hermes --path ~/path/to/hermes/logs --dry-run
 ```
 
@@ -54,6 +55,8 @@ Default sources:
 - Hermes-style logs: pass `--path`; the importer accepts JSONL/JSON records with common `usage`, `last_token_usage`, and `role=user` shapes.
 
 Historical imports treat every human user message as an interruption proxy by default. Claude `subagents` user messages are treated as internal agent traffic, not human interruptions. Use `--exclude-first-user-message` only when you want the older conservative estimate that ignores each log file's initial task message.
+
+`import-all` imports every supported source it can find and reports aggregate processed tokens, user messages, and `tokens/user message`. The same `tokens/user message` field appears in `report` for imported logs.
 
 ## What Counts
 

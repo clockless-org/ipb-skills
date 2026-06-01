@@ -57,6 +57,8 @@ For historical logs, `user-message` interruptions are a proxy. The importer coun
 ```text
 tokens: 4,200,000,000
 interruptions: 840
+user messages: 840
+tokens/user message: 5,000,000
 IPB: 200.00
 level: L4 - Agentic workflow
 ```

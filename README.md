@@ -51,6 +51,7 @@ Dry-run local history first:
 ```bash
 python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-claude --dry-run
 python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-codex --dry-run
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-all --dry-run
 python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-hermes --path ~/path/to/hermes/logs --dry-run
 ```
 
@@ -63,6 +64,8 @@ Default sources:
 - Hermes-style logs: pass `--path`; common JSONL/JSON `usage`, `last_token_usage`, and `role=user` records are supported.
 
 Historical user messages are used as an interruption proxy. Every human user message is counted by default. Claude `subagents` user messages are treated as internal agent traffic. Use `--exclude-first-user-message` only when you want a conservative estimate that ignores each log file's initial task message.
+
+`import-all` scans every supported source it can find and reports aggregate processed tokens, user messages, and `tokens/user message`.
 
 ## Five Levels
 

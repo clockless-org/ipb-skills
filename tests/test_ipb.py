@@ -33,6 +33,8 @@ class IPBTests(unittest.TestCase):
         self.assertEqual(result["tokens"], 3_000_000_000)
         self.assertEqual(result["interruptions"], 9)
         self.assertEqual(result["ipb"], 3)
+        self.assertEqual(result["tokens_per_interruption"], 333_333_333.3333333)
+        self.assertEqual(result["tokens_per_user_message"], None)
         self.assertEqual(result["level"]["code"], "L5")
         self.assertEqual(result["badge"], "AI factory-like")
 
@@ -78,6 +80,7 @@ class IPBTests(unittest.TestCase):
             self.assertEqual(stats.user_messages, 2)
             self.assertEqual(stats.interruptions, 2)
             self.assertEqual(ipb.summarize(ipb.read_events([out]))["ipb"], 100_000_000)
+            self.assertEqual(ipb.summarize(ipb.read_events([out]))["tokens_per_user_message"], 10)
 
     def test_import_can_exclude_first_user_message(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -154,6 +157,21 @@ class IPBTests(unittest.TestCase):
             self.assertEqual(stats.tokens, 50)
             self.assertEqual(stats.user_messages, 2)
             self.assertEqual(stats.interruptions, 2)
+
+    def test_combines_import_stats_for_all_sources(self):
+        stats = ipb.combine_import_stats(
+            "all",
+            [
+                ipb.ImportStats(source="claude", files=1, records=2, token_events=3, tokens=100, user_messages=4, interruptions=4),
+                ipb.ImportStats(source="codex", files=5, records=6, token_events=7, tokens=200, user_messages=8, interruptions=8),
+            ],
+        )
+        self.assertEqual(stats.files, 6)
+        self.assertEqual(stats.records, 8)
+        self.assertEqual(stats.token_events, 10)
+        self.assertEqual(stats.tokens, 300)
+        self.assertEqual(stats.user_messages, 12)
+        self.assertEqual(stats.interruptions, 12)
 
 
 if __name__ == "__main__":

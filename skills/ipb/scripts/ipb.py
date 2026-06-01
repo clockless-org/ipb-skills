@@ -38,6 +38,9 @@ class ImportStats:
     parse_errors: int = 0
 
 
+ALL_SOURCES = ("claude", "codex", "hermes")
+
+
 LEVELS = [
     Level("L1", "Manual AI operation", 3000, math.inf, "Humans are still driving the workflow."),
     Level("L2", "Skilled tool use", 1000, 3000, "Task delegation works, but humans intervene frequently."),
@@ -132,6 +135,17 @@ def event_interruptions(event: dict[str, Any]) -> float:
     return max(0, float(count))
 
 
+def event_user_messages(event: dict[str, Any]) -> float:
+    if event.get("counted") is False:
+        return 0
+    value = event.get("user_messages")
+    if is_number(value):
+        return max(0, float(value))
+    if event.get("type") in {"interruption", "human_interruption"} and event.get("reason") == "user-message":
+        return event_interruptions(event)
+    return 0
+
+
 def classify(ipb: float) -> Level:
     for level in LEVELS:
         if level.min_ipb <= ipb < level.max_ipb:
@@ -142,12 +156,16 @@ def classify(ipb: float) -> Level:
 def summarize(events: list[dict[str, Any]]) -> dict[str, Any]:
     tokens = sum(event_tokens(event) for event in events)
     interruptions = sum(event_interruptions(event) for event in events)
+    user_messages = sum(event_user_messages(event) for event in events)
     ipb = None if tokens <= 0 else interruptions / (tokens / BILLION)
     level = None if ipb is None else classify(ipb)
     result: dict[str, Any] = {
         "tokens": tokens,
         "interruptions": interruptions,
+        "user_messages": user_messages,
         "ipb": ipb,
+        "tokens_per_interruption": None if interruptions <= 0 else tokens / interruptions,
+        "tokens_per_user_message": None if user_messages <= 0 else tokens / user_messages,
         "level": asdict(level) if level else None,
     }
     if ipb is not None and ipb < 5:
@@ -158,10 +176,16 @@ def summarize(events: list[dict[str, Any]]) -> dict[str, Any]:
 def print_report(summary: dict[str, Any]) -> None:
     tokens = summary["tokens"]
     interruptions = summary["interruptions"]
+    user_messages = summary["user_messages"]
     ipb = summary["ipb"]
     print("IPB Report")
     print(f"tokens: {tokens:,}")
     print(f"interruptions: {interruptions:g}")
+    print(f"user messages: {user_messages:g}")
+    if summary["tokens_per_interruption"] is not None:
+        print(f"tokens/interruption: {summary['tokens_per_interruption']:,.0f}")
+    if summary["tokens_per_user_message"] is not None:
+        print(f"tokens/user message: {summary['tokens_per_user_message']:,.0f}")
     if ipb is None:
         print("IPB: unavailable (no token usage recorded)")
         return
@@ -435,6 +459,19 @@ def import_source(
     return stats
 
 
+def combine_import_stats(source: str, stats_list: list[ImportStats]) -> ImportStats:
+    combined = ImportStats(source=source)
+    for stats in stats_list:
+        combined.files += stats.files
+        combined.records += stats.records
+        combined.token_events += stats.token_events
+        combined.tokens += stats.tokens
+        combined.user_messages += stats.user_messages
+        combined.interruptions += stats.interruptions
+        combined.parse_errors += stats.parse_errors
+    return combined
+
+
 def print_import_summary(stats: ImportStats, output_log: Path, dry_run: bool) -> None:
     mode = "dry run" if dry_run else f"wrote {output_log}"
     print(f"IPB import: {stats.source} ({mode})")
@@ -443,9 +480,23 @@ def print_import_summary(stats: ImportStats, output_log: Path, dry_run: bool) ->
     print(f"token events: {stats.token_events:,}")
     print(f"tokens: {stats.tokens:,}")
     print(f"user messages: {stats.user_messages:,}")
+    if stats.user_messages:
+        print(f"tokens/user message: {stats.tokens / stats.user_messages:,.0f}")
     print(f"imported interruptions: {stats.interruptions:g}")
     if stats.parse_errors:
         print(f"parse errors skipped: {stats.parse_errors:,}")
+
+
+def print_import_all_summary(stats_list: list[ImportStats], output_log: Path, dry_run: bool) -> None:
+    total = combine_import_stats("all", stats_list)
+    print_import_summary(total, output_log, dry_run)
+    print("sources:")
+    for stats in stats_list:
+        tokens_per_user = "n/a" if not stats.user_messages else f"{stats.tokens / stats.user_messages:,.0f}"
+        print(
+            f"- {stats.source}: files={stats.files:,}, tokens={stats.tokens:,}, "
+            f"user_messages={stats.user_messages:,}, tokens/user={tokens_per_user}"
+        )
 
 
 def add_import_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser], source: str, help_text: str) -> None:
@@ -462,6 +513,24 @@ def add_import_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser], 
         "--include-first-user-message",
         action="store_true",
         help=argparse.SUPPRESS,
+    )
+
+
+def add_import_all_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    command = sub.add_parser("import-all", help="Import all supported local agent logs.")
+    command.add_argument(
+        "--source",
+        action="append",
+        choices=ALL_SOURCES,
+        default=None,
+        help="Source to import; repeatable. Defaults to claude, codex, and hermes.",
+    )
+    command.add_argument("--out-log", type=Path, default=None, help="Output IPB JSONL path. Defaults to .ipb/events.jsonl.")
+    command.add_argument("--dry-run", action="store_true", help="Scan and summarize without writing IPB events.")
+    command.add_argument(
+        "--exclude-first-user-message",
+        action="store_true",
+        help="Do not count the first user message in each log file as an interruption.",
     )
 
 
@@ -495,6 +564,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_import_parser(sub, "claude", "Import historical Claude Code JSONL usage and user messages.")
     add_import_parser(sub, "codex", "Import historical Codex CLI JSONL usage and user messages.")
     add_import_parser(sub, "hermes", "Import Hermes-style JSONL/JSON usage and user messages.")
+    add_import_all_parser(sub)
 
     return parser
 
@@ -566,6 +636,22 @@ def main() -> int:
             exclude_first_user_message=args.exclude_first_user_message,
         )
         print_import_summary(stats, output_log, args.dry_run)
+        return 0
+
+    if args.command == "import-all":
+        sources = args.source or list(ALL_SOURCES)
+        output_log = args.out_log or primary_log
+        stats_list = [
+            import_source(
+                source=source,
+                paths=expand_input_paths(source, None),
+                output_log=output_log,
+                dry_run=args.dry_run,
+                exclude_first_user_message=args.exclude_first_user_message,
+            )
+            for source in sources
+        ]
+        print_import_all_summary(stats_list, output_log, args.dry_run)
         return 0
 
     parser.error("unknown command")

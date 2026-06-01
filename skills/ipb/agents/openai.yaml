@@ -1,4 +1,4 @@
 interface:
   display_name: "IPB Meter"
   short_description: "Measure IPB from agent logs"
-  default_prompt: "Use $ipb to import available Claude Code, Codex CLI, or Hermes logs and calculate IPB for this project."
+  default_prompt: "Use $ipb to import all available Claude Code, Codex CLI, and Hermes logs, then calculate IPB and tokens per user message."
