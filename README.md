@@ -44,6 +44,26 @@ python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" report
 
 By default it writes `.ipb/events.jsonl` in the current project.
 
+## Import Historical Agent Logs
+
+Dry-run local history first:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-claude --dry-run
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-codex --dry-run
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-hermes --path ~/path/to/hermes/logs --dry-run
+```
+
+Then rerun without `--dry-run` to append normalized events to `.ipb/events.jsonl`.
+
+Default sources:
+
+- Claude Code: `~/.claude/projects/**/*.jsonl`
+- Codex CLI: `~/.codex/sessions/**/*.jsonl` and `~/.codex/archived_sessions/*.jsonl`
+- Hermes-style logs: pass `--path`; common JSONL/JSON `usage`, `last_token_usage`, and `role=user` records are supported.
+
+Historical user messages are used as an interruption proxy. The importer skips the first user message in each log file by default because it is usually the initial task, not an interruption. Claude `subagents` user messages are treated as internal agent traffic.
+
 ## Five Levels
 
 | Level | IPB | Maturity |

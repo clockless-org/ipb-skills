@@ -51,6 +51,91 @@ class IPBTests(unittest.TestCase):
             result = ipb.summarize(ipb.read_events([path]))
             self.assertEqual(result["ipb"], 1)
 
+    def test_imports_claude_usage_and_human_messages(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "claude.jsonl"
+            out = Path(tmp) / "events.jsonl"
+            records = [
+                {"type": "user", "message": {"role": "user", "content": "initial task"}},
+                {
+                    "type": "assistant",
+                    "message": {
+                        "role": "assistant",
+                        "usage": {
+                            "input_tokens": 10,
+                            "cache_read_input_tokens": 4,
+                            "output_tokens": 6,
+                        },
+                    },
+                },
+                {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result"}]}},
+                {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": "blocked"}]}},
+            ]
+            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+
+            stats = ipb.import_source("claude", [path], out)
+            self.assertEqual(stats.tokens, 20)
+            self.assertEqual(stats.user_messages, 2)
+            self.assertEqual(stats.interruptions, 1)
+            self.assertEqual(ipb.summarize(ipb.read_events([out]))["ipb"], 50_000_000)
+
+    def test_claude_subagent_user_messages_are_internal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subagents = Path(tmp) / "subagents"
+            subagents.mkdir()
+            path = subagents / "agent.jsonl"
+            records = [
+                {"type": "user", "message": {"role": "user", "content": [{"type": "text", "text": "delegate"}]}},
+                {"type": "assistant", "message": {"role": "assistant", "usage": {"input_tokens": 10, "output_tokens": 5}}},
+            ]
+            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+
+            stats = ipb.import_source("claude", [path], Path(tmp) / "events.jsonl", dry_run=True)
+            self.assertEqual(stats.tokens, 15)
+            self.assertEqual(stats.user_messages, 0)
+            self.assertEqual(stats.interruptions, 0)
+
+    def test_imports_codex_incremental_token_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "codex.jsonl"
+            out = Path(tmp) / "events.jsonl"
+            records = [
+                {"type": "event_msg", "payload": {"type": "user_message"}},
+                {
+                    "type": "event_msg",
+                    "payload": {
+                        "type": "token_count",
+                        "info": {
+                            "last_token_usage": {"total_tokens": 100},
+                            "total_token_usage": {"total_tokens": 10_000},
+                        },
+                    },
+                },
+                {"type": "response_item", "payload": {"type": "message", "role": "user"}},
+                {"type": "event_msg", "payload": {"type": "user_message"}},
+            ]
+            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+
+            stats = ipb.import_source("codex", [path], out)
+            self.assertEqual(stats.tokens, 100)
+            self.assertEqual(stats.user_messages, 2)
+            self.assertEqual(stats.interruptions, 1)
+
+    def test_imports_generic_hermes_style_records(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "hermes.jsonl"
+            records = [
+                {"role": "user", "content": "initial task"},
+                {"usage": {"input_tokens": 40, "output_tokens": 10}},
+                {"payload": {"type": "user_message"}},
+            ]
+            path.write_text("\n".join(json.dumps(record) for record in records), encoding="utf-8")
+
+            stats = ipb.import_source("hermes", [path], Path(tmp) / "events.jsonl", dry_run=True)
+            self.assertEqual(stats.tokens, 50)
+            self.assertEqual(stats.user_messages, 2)
+            self.assertEqual(stats.interruptions, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

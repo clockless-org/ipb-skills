@@ -1,4 +1,4 @@
 interface:
   display_name: "IPB Meter"
-  short_description: "Measure interruptions per billion tokens"
-  default_prompt: "Use $ipb to calculate IPB for this project from available token and interruption logs."
+  short_description: "Measure IPB from agent logs"
+  default_prompt: "Use $ipb to import available Claude Code, Codex CLI, or Hermes logs and calculate IPB for this project."

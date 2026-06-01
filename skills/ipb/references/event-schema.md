@@ -38,6 +38,20 @@ Recommended reasons:
 - `tool-failure`
 - `policy-decision`
 
+## Imported Events
+
+Historical import commands append normal `usage` and `interruption` events with import metadata:
+
+```json
+{"type":"usage","tokens":25000000,"source":"codex-import","imported_from":"/path/to/session.jsonl","records":1200,"token_events":45}
+```
+
+```json
+{"type":"interruption","reason":"user-message","count":12,"source":"claude-import","imported_from":"/path/to/session.jsonl","user_messages":13,"interruption_policy":"exclude-first-user-message-per-file"}
+```
+
+For historical logs, `user-message` interruptions are a proxy. The importer excludes the first user message in each log file by default and treats Claude `subagents` user messages as internal agent traffic.
+
 ## Example Report
 
 ```text

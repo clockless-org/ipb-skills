@@ -1,6 +1,6 @@
 ---
 name: ipb
-description: Measure Interruptions Per Billion Tokens (IPB) for AI-native workflows and classify automation maturity. Use when Codex needs to log token usage, log human interruptions, compute IPB from JSONL logs, explain what counts as an interruption, or categorize a team/system into the five IPB maturity levels.
+description: Measure Interruptions Per Billion Tokens (IPB) for AI-native workflows and classify automation maturity. Use when Codex needs to log token usage, log human interruptions, import historical token usage or user-message counts from Claude Code, Codex CLI, or Hermes-style JSONL logs, compute IPB, explain what counts as an interruption, or categorize a team/system into the five IPB maturity levels.
 ---
 
 # IPB
@@ -30,6 +30,30 @@ python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" report
 ```
 
 Default log path is `.ipb/events.jsonl` in the current project. Use `--log <path>` to override.
+
+## Historical Imports
+
+The script can import past token usage and user-message counts from local agent logs:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-claude --dry-run
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-codex --dry-run
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" import-hermes --path ~/path/to/hermes/logs --dry-run
+```
+
+If the dry run looks right, rerun without `--dry-run` to append normalized events to `.ipb/events.jsonl`, then run:
+
+```bash
+python3 "${CODEX_HOME:-$HOME/.codex}/skills/ipb/scripts/ipb.py" report
+```
+
+Default sources:
+
+- Claude Code: `~/.claude/projects/**/*.jsonl`
+- Codex CLI: `~/.codex/sessions/**/*.jsonl` and `~/.codex/archived_sessions/*.jsonl`
+- Hermes-style logs: pass `--path`; the importer accepts JSONL/JSON records with common `usage`, `last_token_usage`, and `role=user` shapes.
+
+Historical imports treat human user messages as an interruption proxy. They exclude the first user message in each log file by default because that is usually the initial task definition, not an interruption. Claude `subagents` user messages are treated as internal agent traffic, not human interruptions. Use `--include-first-user-message` when you want raw user-message count as interruptions.
 
 ## What Counts
 
